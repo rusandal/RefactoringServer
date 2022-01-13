@@ -23,46 +23,38 @@ public class ClientExecutor implements Runnable{
                 final var in = clientSocket.getInputStream();
                 final var out = new BufferedOutputStream(clientSocket.getOutputStream())) {
             Request request = new Request(in);
-            if(server.getValidPaths().contains(request.getPath())){
-                Map<String, Handler> handlerMap = server.getHandlers().get(request.getMethod());
+            String methhod = request.getMethod();
+            String pathRequest = request.getPath();
+            //Проверяем на валидность файлов. Если невалидный, отправляем badrequest
+            if (pathRequest!=null & Server.VALID_PATH.contains(pathRequest)) {
+                //Получаем мапу по методу
+                Map<String, Handler> handlerMap = server.getHandlers().get(methhod);
+                //Если мапы по методу нет, но файл в списке валидный файлов, то отправляем как есть и завершаем выполнение
                 if (handlerMap == null) {
-                    out.write((
-                            "HTTP/1.1 404 Not Found\r\n" +
-                                    "Content-Length: 0\r\n" +
-                                    "Connection: close\r\n" +
-                                    "\r\n"
-                    ).getBytes());
-                    out.flush();
+                    sendFile(out, pathRequest);
                     return;
                 }
-
-                Handler handler = handlerMap.get(request.getPath());
-                //Если нет хендлера для данного метода, то отдаем запрашиваемый файл без обработки
+                Handler handler;
+                //Проверяем путь на наличие в пути вложенного каталога
+                //Если подкаталога в пути нет, то получаем хендлер или null
+                //Если есть, то проверяем хендлер по каталогу
+                if (!pathRequest.substring(1).contains("/")) {
+                    handler = handlerMap.get(request.getPath());
+                } else {
+                    int index = pathRequest.indexOf('/', 1);
+                    handler = handlerMap.get(pathRequest.substring(0, index));
+                }
+                //Если нет хендлера для данного метода, то отдаем хендлеру по умолчанию
                 if (handler == null) {
-                    var filePath = Path.of(".", "public", request.getPath());
-                    var length = Files.size(filePath);
-                    var mimeType = Files.probeContentType(filePath);
-                    out.write((
-                            "HTTP/1.1 200 OK\r\n" +
-                                    "Content-Type: " + mimeType + "\r\n" +
-                                    "Content-Length: " + length + "\r\n" +
-                                    "Connection: close\r\n" +
-                                    "\r\n"
-                    ).getBytes());
-                    Files.copy(filePath, out);
-                    out.flush();
-                    return;
+                    if (handlerMap.containsKey("*")){
+                        handler=handlerMap.get("*");
+                        handler.handle(request, out);
+                        return;
+                    }
                 }
-
                 handler.handle(request, out);
             } else {
-                out.write((
-                        "HTTP/1.1 404 Not Found\r\n" +
-                                "Content-Length: 0\r\n" +
-                                "Connection: close\r\n" +
-                                "\r\n"
-                ).getBytes());
-                out.flush();
+                badRequest(out);
                 return;
             }
 
@@ -70,5 +62,30 @@ public class ClientExecutor implements Runnable{
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void badRequest(BufferedOutputStream bufferedOutputStream) throws IOException {
+        bufferedOutputStream.write((
+                "HTTP/1.1 404 Not Found\r\n" +
+                        "Content-Length: 0\r\n" +
+                        "Connection: close\r\n" +
+                        "\r\n"
+        ).getBytes());
+        bufferedOutputStream.flush();
+    }
+
+    public void sendFile(BufferedOutputStream bufferedOutputStream, String requestPath) throws IOException {
+        var filePath = Path.of(".", "public", requestPath);
+        var length = Files.size(filePath);
+        var mimeType = Files.probeContentType(filePath);
+        bufferedOutputStream.write((
+                "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: " + mimeType + "\r\n" +
+                        "Content-Length: " + length + "\r\n" +
+                        "Connection: close\r\n" +
+                        "\r\n"
+        ).getBytes());
+        Files.copy(filePath, bufferedOutputStream);
+        bufferedOutputStream.flush();
     }
 }
