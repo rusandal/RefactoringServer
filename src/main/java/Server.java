@@ -1,13 +1,9 @@
 import handler.Handler;
 import request.Request;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,7 +14,7 @@ public class Server {
     private ServerSocket serverSocket;
     private final ExecutorService threadPool = Executors.newFixedThreadPool(64);
     private Map<String, Map<String, Handler>> handlers = new ConcurrentHashMap<>();
-    public static final List<String> VALID_PATH = List.of("/index.html", "/spring.svg", "/spring.png", "/resources.html", "/styles.css", "/app.js", "/links.html", "/forms.html", "/classic.html", "/events.html", "/events.js", "/messages/index.html");
+    public static final List<String> VALID_PATH = List.of("/index.html", "/spring.svg", "/spring.png", "/resources.html", "/styles.css", "/app.js", "/links.html", "/forms.html", "/classic.html", "/events.html", "/events.js", "/messages/index.html", "/messages/classic.html");
 
     public void runServer() {
         try {
